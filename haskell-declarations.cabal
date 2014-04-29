@@ -20,6 +20,17 @@ executable haskell-declarations
   main-is:             haskell-declarations.hs
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.6 && <4.7
+  build-depends:       base >=4.6 && <4.7,
+                       haskell-names >=0.3.3.2 && <0.4,
+                       base == 4.*,
+                       containers,
+                       haskell-src-exts,
+                       haskell-names,
+                       haskell-packages,
+                       filepath,
+                       mtl,
+                       Cabal,
+                       hse-cpp,
+                       tagged
   hs-source-dirs:      src
   default-language:    Haskell2010
