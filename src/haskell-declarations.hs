@@ -13,6 +13,7 @@ import Control.Exception
 import Data.Version
 import Data.Typeable
 import Data.Proxy
+import Data.Tagged
 import Data.Maybe
 import qualified Data.Foldable as F
 import System.FilePath
@@ -41,7 +42,7 @@ suffix = "declarations"
 data DeclarationsDB = DeclarationsDB
 
 instance IsDBName DeclarationsDB where
-    getDBName = undefined
+    getDBName = Tagged "haskell-declarations"
 
 nameFilesExtension :: FilePath
 nameFilesExtension = "declarations"
