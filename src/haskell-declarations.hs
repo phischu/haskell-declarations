@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Main where
 
 import qualified Language.Haskell.Exts.Annotated as HSE
@@ -177,4 +178,8 @@ type DeclaredSymbols = Symbols
 type UsedSymbols = Symbols
 
 instance ToJSON Declaration where
-  toJSON = undefined
+  toJSON (Declaration genre declarationast declaredsymbols usedsymbols) = object [
+        "genre" .= show genre,
+        "declarationast" .= declarationast,
+        "declaredsymbols" .= declaredsymbols,
+        "usedsymbols" .= usedsymbols]
