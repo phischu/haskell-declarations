@@ -18,6 +18,8 @@ import Data.Maybe
 import qualified Data.Foldable as F
 import System.FilePath
 import Text.Printf
+import Data.Aeson (encode,ToJSON(toJSON))
+import qualified Data.ByteString.Lazy as ByteString (writeFile)
 
 import Distribution.HaskellSuite
 import qualified Distribution.HaskellSuite.Compiler as Compiler
@@ -34,7 +36,7 @@ main =
   Compiler.main theTool
 
 version :: Data.Version.Version
-version = Data.Version.Version [7,6,3] []
+version = Data.Version.Version [0,1] []
 
 suffix :: String
 suffix = "declarations"
@@ -50,7 +52,7 @@ nameFilesExtension = "declarations"
 theTool :: Compiler.Simple (StandardDB DeclarationsDB)
 theTool =
   Compiler.simple
-    "haskell-names"
+    "haskell-delcarations"
     version
     knownLanguages
     knownExtensions
@@ -90,4 +92,12 @@ compile builddirectory maybelanguage extensions cppoptions packagename packagedb
 
     createDirectoryIfMissingVerbose silent True (dropFileName declarationsfilename)
 
-    print ("working on: " ++ show packagename))
+    ByteString.writeFile declarationsfilename (encode (extractDeclarations modul)))
+
+extractDeclarations :: HSE.Module HSE.SrcSpan -> [Declaration]
+extractDeclarations = undefined
+
+data Declaration = Declaration
+
+instance ToJSON Declaration where
+  toJSON = undefined
