@@ -112,9 +112,10 @@ compile builddirectory maybelanguage extensions cppoptions packagename packagedb
 
   modules <- mapM (parse language extensions cppoptions) files
 
+  print packagedbs
+
   globalpackages <- getInstalledPackages (Proxy :: Proxy NamesDB) GlobalPackageDB
-  let localpackagedbpath = "/home/pschuster/Projects/symbols/.cabal-sandbox/x86_64-linux-haskell-names-0.2-packages.conf.d"
-  localpackages <- getInstalledPackages (Proxy :: Proxy NamesDB) (SpecificPackageDB localpackagedbpath)
+  localpackages <- getInstalledPackages (Proxy :: Proxy NamesDB) UserPackageDB
 
   let packages = globalpackages ++ localpackages      
 
