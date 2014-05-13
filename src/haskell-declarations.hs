@@ -90,7 +90,8 @@ fixCppOpts :: CpphsOptions -> CpphsOptions
 fixCppOpts opts =
   opts {
     defines = ("__GLASGOW_HASKELL__", "706") : defines opts, -- FIXME
-    preInclude = "cabal_macros.h" : preInclude opts
+    preInclude = "cabal_macros.h" : preInclude opts,
+    includes = "/usr/lib/ghc/include/": includes opts
   }
 
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
