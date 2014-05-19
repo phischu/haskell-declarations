@@ -185,4 +185,4 @@ instance ToJSON Declaration where
         "genre" .= show genre,
         "declarationast" .= declarationast,
         "declaredsymbols" .= declaredsymbols,
-        "usedsymbols" .= usedsymbols]
+        "mentionedsymbols" .= usedsymbols]
