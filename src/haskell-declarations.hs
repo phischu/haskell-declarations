@@ -73,12 +73,12 @@ instance IsDBName DeclarationsDB where
 theTool :: Compiler.Simple (StandardDB DeclarationsDB)
 theTool =
   Compiler.simple
-    "haskell-delcarations"
+    "haskell-declarations"
     version
     knownLanguages
     knownExtensions
     compile
-    ["declarations","names"]
+    ["names","declarations"]
 
 fixCppOpts :: CpphsOptions -> CpphsOptions
 fixCppOpts opts =
