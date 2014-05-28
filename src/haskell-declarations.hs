@@ -65,16 +65,10 @@ main =
 version :: Data.Version.Version
 version = Data.Version.Version [0,1] []
 
-suffix :: String
-suffix = "declarations"
-
 data DeclarationsDB = DeclarationsDB
 
 instance IsDBName DeclarationsDB where
     getDBName = Tagged "haskell-declarations"
-
-nameFilesExtension :: FilePath
-nameFilesExtension = "declarations"
 
 theTool :: Compiler.Simple (StandardDB DeclarationsDB)
 theTool =
@@ -84,7 +78,7 @@ theTool =
     knownLanguages
     knownExtensions
     compile
-    [nameFilesExtension]
+    ["declarations","names"]
 
 fixCppOpts :: CpphsOptions -> CpphsOptions
 fixCppOpts opts =
@@ -109,29 +103,30 @@ parse lang exts cppOpts file = do
 
 compile :: Compiler.CompileFn
 compile builddirectory maybelanguage extensions cppoptions packagename packagedbs dependencies files = do
-  let language = fromMaybe Haskell98 maybelanguage
+    let language = fromMaybe Haskell98 maybelanguage
 
-  modules <- mapM (parse language extensions cppoptions) files
+    moduleasts <- mapM (parse language extensions cppoptions) files
 
-  print packagedbs
+    packages <- readPackagesInfo (Proxy :: Proxy (StandardDB DeclarationsDB)) packagedbs dependencies   
 
-  globalpackages <- getInstalledPackages (Proxy :: Proxy NamesDB) GlobalPackageDB
-  localpackages <- getInstalledPackages (Proxy :: Proxy NamesDB) UserPackageDB
+    (interfaces, errors) <- evalModuleT (getInterfaces language extensions moduleasts) packages "names" readInterface
 
-  let packages = globalpackages ++ localpackages      
+    F.for_ errors $ \e -> printf "Warning: %s" (ppError e)
 
-  forM_ modules (\moduleast -> do
+    forM_ (zip moduleasts interfaces) (\(moduleast, symbols) -> do
 
-    let HSE.ModuleName _ modulename = getModuleName moduleast
-        declarationsfilename = builddirectory </> toFilePath (fromString modulename) <.> nameFilesExtension
+        annotatedmoduleast <- evalNamesModuleT (annotateModule language extensions moduleast) packages
 
-    createDirectoryIfMissingVerbose silent True (dropFileName declarationsfilename)
+        let declarations = extractDeclarations (getModuleName annotatedmoduleast) annotatedmoduleast
+            HSE.ModuleName _ modulename = getModuleName moduleast
+            interfacefilename = builddirectory </> toFilePath (fromString modulename) <.> "names"
+            declarationsfilename = builddirectory </> toFilePath (fromString modulename) <.> "declarations"
 
-    annotatedmoduleast <- evalNamesModuleT (annotateModule Haskell2010 [] moduleast) packages
+        createDirectoryIfMissingVerbose silent True (dropFileName interfacefilename)
+        createDirectoryIfMissingVerbose silent True (dropFileName declarationsfilename)
 
-    let declarations = extractDeclarations (getModuleName annotatedmoduleast) annotatedmoduleast
-
-    ByteString.writeFile declarationsfilename (encode declarations))
+        writeInterface interfacefilename $ qualifySymbols packagename symbols
+        ByteString.writeFile declarationsfilename (encode declarations))
 
 extractDeclarations :: HSE.ModuleName (Scoped HSE.SrcSpan) -> HSE.Module (Scoped HSE.SrcSpan) -> [Declaration]
 extractDeclarations modulenameast annotatedmoduleast = map (declToDeclaration modulenameast) (getModuleDecls annotatedmoduleast)
