@@ -9,6 +9,7 @@ import Language.Haskell.Names.Interfaces
 import Language.Haskell.Exts.Extension
 import Language.Haskell.Exts.SrcLoc
 import Language.Haskell.Exts.Parser (fromParseResult)
+import Language.Preprocessor.Cpphs (runCpphsReturningSymTab)
 import Control.Monad
 import Control.Exception
 import Data.Version
@@ -85,16 +86,23 @@ fixCppOpts opts =
   opts {
     defines = ("__GLASGOW_HASKELL__", "706") : defines opts, -- FIXME
     preInclude = "cabal_macros.h" : preInclude opts,
-    includes = "/usr/lib/ghc/include/": includes opts
+    includes = "/usr/lib/ghc/include/": includes opts,
+    boolopts = fixBoolOpts (boolopts opts)
   }
 
+fixBoolOpts :: BoolOptions -> BoolOptions
+fixBoolOpts boolopts =
+  boolopts {
+    lang = False
+}
+
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
-parse lang exts cppOpts file = do
-    parseresult <- parseFileWithCommentsAndCPP (fixCppOpts cppOpts) mode file
+parse lang exts cppOpts filename = do
+    parseresult <- parseFileWithCommentsAndCPP (fixCppOpts cppOpts) mode filename
     return (fmap srcInfoSpan (fst (fromParseResult parseresult)))
   where
     mode = defaultParseMode
-             { UnAnn.parseFilename   = file
+             { UnAnn.parseFilename   = filename
              , baseLanguage          = lang
              , extensions            = exts
              , ignoreLanguagePragmas = False

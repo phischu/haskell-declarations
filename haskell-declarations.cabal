@@ -21,16 +21,17 @@ executable haskell-declarations
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.6 && <4.7,
-                       haskell-names,
+                       haskell-names >=0.4 && <0.5,
+                       haskell-src-exts >=1.15.0.2 && <1.16,
+                       haskell-packages >=0.2.4 && <0.3,
                        containers,
-                       haskell-src-exts,
-                       haskell-packages,
                        filepath,
                        mtl,
                        Cabal,
                        hse-cpp,
                        tagged,
                        aeson,
-                       bytestring
+                       bytestring,
+                       cpphs
   hs-source-dirs:      src
   default-language:    Haskell2010
