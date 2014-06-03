@@ -97,14 +97,14 @@ fixBoolOpts boolopts =
 }
 
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
-parse lang exts cppOpts filename = do
-    parseresult <- parseFileWithCommentsAndCPP (fixCppOpts cppOpts) mode filename
+parse language extensions cppoptions filename = do
+    parseresult <- parseFileWithCommentsAndCPP (fixCppOpts cppoptions) mode filename
     return (fmap srcInfoSpan (fst (fromParseResult parseresult)))
   where
     mode = defaultParseMode
              { UnAnn.parseFilename   = filename
-             , baseLanguage          = lang
-             , extensions            = exts
+             , baseLanguage          = language
+             , extensions            = extensions
              , ignoreLanguagePragmas = False
              , ignoreLinePragmas     = False
              }
