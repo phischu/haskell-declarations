@@ -96,6 +96,11 @@ fixBoolOpts boolopts =
     lang = False
 }
 
+fixExtensions :: FilePath -> [Extension] -> [Extension]
+fixExtensions filename extensions
+    | filename == "./Data/Vector/Generic/New.hs" = (EnableExtension MultiParamTypeClasses) : extensions
+    | otherwise = extensions
+
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
 parse language extensions cppoptions filename = do
     parseresult <- parseFileWithCommentsAndCPP (fixCppOpts cppoptions) mode filename
@@ -104,7 +109,7 @@ parse language extensions cppoptions filename = do
     mode = defaultParseMode
              { UnAnn.parseFilename   = filename
              , baseLanguage          = language
-             , extensions            = extensions
+             , extensions            = fixExtensions filename extensions
              , ignoreLanguagePragmas = False
              , ignoreLinePragmas     = False
              }
