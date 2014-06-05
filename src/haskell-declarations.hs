@@ -98,8 +98,14 @@ fixBoolOpts boolopts =
 
 fixExtensions :: FilePath -> [Extension] -> [Extension]
 fixExtensions filename extensions
-    | filename == "./Data/Vector/Generic/New.hs" = (EnableExtension MultiParamTypeClasses) : extensions
+    | filename `elem` needMultiParamTypeClasses = (EnableExtension MultiParamTypeClasses) : extensions
     | otherwise = extensions
+
+needMultiParamTypeClasses :: [FilePath]
+needMultiParamTypeClasses = [
+    "./Data/Vector/Generic/New.hs",
+    "./Control/Exception/Lifted.hs",
+    "./Control/Concurrent/MVar/Lifted.hs"]
 
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
 parse language extensions cppoptions filename = do
@@ -165,7 +171,7 @@ declGenre (InstDecl _ _ _ _) = ClassInstance
 declGenre (DerivDecl _ _ _) = ClassInstance
 declGenre (TypeSig _ _ _) = TypeSignature
 declGenre (FunBind _ _) = Value
-declGenre (PatBind _ _ _ _ _) = Value
+declGenre (PatBind _ _ _ _) = Value
 declGenre (ForImp _ _ _ _ _ _) = Value
 declGenre _ = Other
 
