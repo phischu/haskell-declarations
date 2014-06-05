@@ -118,6 +118,7 @@ parse language extensions cppoptions filename = do
              , extensions            = fixExtensions filename extensions
              , ignoreLanguagePragmas = False
              , ignoreLinePragmas     = False
+             , fixities              = Just []
              }
 
 compile :: Compiler.CompileFn
