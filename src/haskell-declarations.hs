@@ -84,7 +84,7 @@ theTool =
 fixCppOpts :: CpphsOptions -> CpphsOptions
 fixCppOpts opts =
   opts {
-    defines = ("__GLASGOW_HASKELL__", "706") : ("INTEGER_SIMPLE", "") : defines opts,
+    defines = ("__GLASGOW_HASKELL__", "706") : ("INTEGER_SIMPLE", "1") : defines opts,
     preInclude = "cabal_macros.h" : preInclude opts,
     includes = "/usr/lib/ghc/include/": includes opts,
     boolopts = fixBoolOpts (boolopts opts)
