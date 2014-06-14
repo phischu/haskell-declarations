@@ -97,15 +97,10 @@ fixBoolOpts boolopts =
 }
 
 fixExtensions :: FilePath -> [Extension] -> [Extension]
-fixExtensions filename extensions
-    | filename `elem` needMultiParamTypeClasses = (EnableExtension MultiParamTypeClasses) : extensions
-    | otherwise = extensions
-
-needMultiParamTypeClasses :: [FilePath]
-needMultiParamTypeClasses = [
-    "./Data/Vector/Generic/New.hs",
-    "./Control/Exception/Lifted.hs",
-    "./Control/Concurrent/MVar/Lifted.hs"]
+fixExtensions filename extensions =
+  (EnableExtension MultiParamTypeClasses):
+  (EnableExtension NondecreasingIndentation):
+  extensions
 
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
 parse language extensions cppoptions filename = do
