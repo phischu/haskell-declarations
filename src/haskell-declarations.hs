@@ -102,6 +102,7 @@ fixExtensions filename extensions =
   (EnableExtension NondecreasingIndentation):
   (EnableExtension TypeOperators):
   (EnableExtension BangPatterns):
+  (EnableExtension TemplateHaskell):
   extensions
 
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
