@@ -100,6 +100,7 @@ fixExtensions :: FilePath -> [Extension] -> [Extension]
 fixExtensions filename extensions =
   (EnableExtension MultiParamTypeClasses):
   (EnableExtension NondecreasingIndentation):
+  (EnableExtension TypeOperators):
   extensions
 
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
