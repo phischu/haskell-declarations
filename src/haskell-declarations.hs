@@ -33,6 +33,7 @@ import qualified Data.Set as Set (fromList)
 import Distribution.HaskellSuite
 import qualified Distribution.HaskellSuite.Compiler as Compiler
 
+import Distribution.Package (PackageIdentifier(pkgName),PackageName(PackageName))
 import Distribution.ModuleName hiding (main)
 import Distribution.Simple.Utils
 import Distribution.Simple.Compiler (PackageDB(..))
@@ -96,6 +97,21 @@ fixBoolOpts boolopts =
     lang = False
 }
 
+fixCppOptsForParsec :: CpphsOptions -> CpphsOptions
+fixCppOptsForParsec opts =
+  opts {
+    defines = ("__GLASGOW_HASKELL__", "706") : ("INTEGER_SIMPLE", "1") : defines opts,
+    includes = "/usr/lib/ghc/include/": includes opts,
+    boolopts = fixBoolOptsForParsec (boolopts opts)
+  }
+
+fixBoolOptsForParsec :: BoolOptions -> BoolOptions
+fixBoolOptsForParsec boolopts =
+  boolopts {
+    lang = False,
+    stripC89 = False
+}
+
 fixExtensions :: [Extension] -> [Extension]
 fixExtensions extensions =
   (EnableExtension MultiParamTypeClasses):
@@ -107,7 +123,7 @@ fixExtensions extensions =
 
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
 parse language extensions cppoptions filename = do
-    parseresult <- parseFileWithCommentsAndCPP (fixCppOpts cppoptions) mode filename
+    parseresult <- parseFileWithCommentsAndCPP cppoptions mode filename
     return (fmap srcInfoSpan (fst (fromParseResult parseresult)))
   where
     mode = defaultParseMode
@@ -123,7 +139,10 @@ compile :: Compiler.CompileFn
 compile builddirectory maybelanguage extensions cppoptions packagename packagedbs dependencies files = do
     let language = fromMaybe Haskell98 maybelanguage
 
-    moduleasts <- mapM (parse language extensions cppoptions) files
+    let isParsec = pkgName packagename == PackageName "parsec"
+        cppoptions' = if isParsec then fixCppOptsForParsec cppoptions else fixCppOpts cppoptions
+
+    moduleasts <- mapM (parse language extensions cppoptions') files
 
     packages <- readPackagesInfo (Proxy :: Proxy (StandardDB DeclarationsDB)) packagedbs dependencies   
 
