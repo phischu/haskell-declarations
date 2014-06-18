@@ -96,8 +96,8 @@ fixBoolOpts boolopts =
     lang = False
 }
 
-fixExtensions :: FilePath -> [Extension] -> [Extension]
-fixExtensions filename extensions =
+fixExtensions :: [Extension] -> [Extension]
+fixExtensions extensions =
   (EnableExtension MultiParamTypeClasses):
   (EnableExtension NondecreasingIndentation):
   (EnableExtension TypeOperators):
@@ -113,7 +113,7 @@ parse language extensions cppoptions filename = do
     mode = defaultParseMode
              { UnAnn.parseFilename   = filename
              , baseLanguage          = language
-             , extensions            = fixExtensions filename extensions
+             , extensions            = fixExtensions extensions
              , ignoreLanguagePragmas = False
              , ignoreLinePragmas     = False
              , fixities              = Just []
