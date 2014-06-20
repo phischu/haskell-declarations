@@ -91,7 +91,10 @@ fixCppOpts opts =
       ("CALLCONV","ccall") : -- Mysterically isn't defined in Network/BSD.hsc from HsNet.h
       defines opts,
     preInclude = "cabal_macros.h" : preInclude opts,
-    includes = "/usr/lib/ghc/include/": includes opts,
+    includes =
+      "/usr/lib/ghc/include/" :
+      "/home/pschuster/.haskell-packages/base-4.7.0.0/include/" :
+      includes opts,
     boolopts = fixBoolOpts (boolopts opts)
   }
 
