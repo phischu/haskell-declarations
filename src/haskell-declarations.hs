@@ -19,6 +19,7 @@ import Data.Tagged
 import Data.Maybe
 import qualified Data.Foldable as F
 import System.FilePath
+import System.Directory
 import Text.Printf
 import Data.Aeson (encode,ToJSON(toJSON))
 import qualified Data.ByteString.Lazy as ByteString (writeFile)
@@ -88,7 +89,6 @@ fixCppOpts opts =
     defines =
       ("__GLASGOW_HASKELL__", "706") :
       ("INTEGER_SIMPLE", "1") :
-      ("CALLCONV","ccall") : -- Mysterically isn't defined in Network/BSD.hsc from HsNet.h
       defines opts,
     preInclude = "cabal_macros.h" : preInclude opts,
     includes =
@@ -131,7 +131,9 @@ fixExtensions extensions =
 parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
 parse language extensions cppoptions filename = do
     parseresult <- parseFileWithCommentsAndCPP cppoptions mode filename
-    return (fmap srcInfoSpan (fst (fromParseResult parseresult)))
+    case parseresult of
+        UnAnn.ParseOk (ast,_) -> return (fmap srcInfoSpan ast)
+        UnAnn.ParseFailed loc msg -> error ("PARSE FAILED: " ++ show loc ++ " " ++ show msg)
   where
     mode = defaultParseMode
              { UnAnn.parseFilename   = filename
@@ -221,7 +223,7 @@ type UsedSymbols = Symbols
 
 instance ToJSON Declaration where
   toJSON (Declaration genre declarationast declaredsymbols usedsymbols) = object [
-        "genre" .= show genre,
+        "declarationgenre" .= show genre,
         "declarationast" .= declarationast,
         "declaredsymbols" .= declaredsymbols,
         "mentionedsymbols" .= usedsymbols]
