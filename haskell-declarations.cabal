@@ -21,8 +21,8 @@ executable haskell-declarations
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.6 && <4.7,
-                       haskell-names >=0.4.1 && <0.5,
-                       haskell-src-exts >=1.15.0.2 && <1.16,
+                       haskell-names >=0.4.2 && <0.5,
+                       haskell-src-exts >=1.16 && <1.17,
                        haskell-packages >=0.2.4 && <0.3,
                        containers,
                        filepath,

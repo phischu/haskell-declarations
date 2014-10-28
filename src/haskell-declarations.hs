@@ -1,32 +1,24 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main where
 
-import qualified Language.Haskell.Exts.Annotated as HSE
-import qualified Language.Haskell.Exts as UnAnn
-import Language.Haskell.Exts (defaultParseMode, ParseMode(..))
-import Language.Haskell.Names
+import Language.Haskell.Exts.Annotated (Module,Decl(..),ModuleName(ModuleName))
+import Language.Haskell.Exts (defaultParseMode,ParseMode(..),ParseResult(ParseOk,ParseFailed))
+import Language.Haskell.Names (
+    Symbols(Symbols),annotateModule,Scoped(Scoped),SymValueInfo,SymTypeInfo,OrigName,
+    NameInfo(GlobalValue,GlobalType),getInterfaces,ppError,qualifySymbols)
 import Language.Haskell.Names.Interfaces
 import Language.Haskell.Exts.Extension
 import Language.Haskell.Exts.SrcLoc
-import Language.Haskell.Exts.Parser (fromParseResult)
-import Language.Preprocessor.Cpphs (runCpphsReturningSymTab)
-import Control.Monad
-import Control.Exception
 import Data.Version
-import Data.Typeable
 import Data.Proxy
 import Data.Tagged
 import Data.Maybe
 import qualified Data.Foldable as F
 import System.FilePath
-import System.Directory
 import Text.Printf
-import Data.Aeson (encode,ToJSON(toJSON))
+import Data.Aeson (encode,ToJSON(toJSON),object,(.=))
 import qualified Data.ByteString.Lazy as ByteString (writeFile)
 
-import qualified Language.Haskell.Exts.Annotated as HSE (Module,Decl,SrcSpan,ModuleName)
-import Language.Haskell.Exts.Annotated (Decl(..))
-import Language.Haskell.Exts.Extension (Language(Haskell2010))
 import Language.Haskell.Exts.Pretty (prettyPrint)
 
 import qualified Data.Set as Set (fromList)
@@ -35,27 +27,15 @@ import Distribution.HaskellSuite
 import qualified Distribution.HaskellSuite.Compiler as Compiler
 
 import Distribution.Package (PackageIdentifier(pkgName),PackageName(PackageName))
-import Distribution.ModuleName hiding (main)
+import Distribution.ModuleName (toFilePath,fromString)
 import Distribution.Simple.Utils
-import Distribution.Simple.Compiler (PackageDB(..))
 import Distribution.Verbosity
 
-import Language.Haskell.Names (
-    Symbols(Symbols),annotateModule,Scoped(Scoped),SymValueInfo,SymTypeInfo,OrigName,
-    NameInfo(GlobalValue,GlobalType))
-import Language.Haskell.Names.SyntaxUtils (getModuleDecls,getModuleName)
 import Language.Haskell.Names.ModuleSymbols (getTopDeclSymbols)
 import qualified Language.Haskell.Names.GlobalSymbolTable as GlobalTable (empty)
 
-import Distribution.ModuleName (ModuleName)
-import Distribution.Text (display)
-
-import Data.Aeson (encode,ToJSON(toJSON),object,(.=))
-
-import qualified Data.ByteString.Lazy as ByteString (writeFile)
-import Control.Monad (forM_,when)
+import Control.Monad (forM_)
 import Data.Either (partitionEithers)
-import qualified Data.Set as Set (fromList)
 import Data.Foldable (foldMap)
 
 import Language.Haskell.Exts.Annotated.CPP
@@ -128,15 +108,15 @@ fixExtensions extensions =
   (EnableExtension TemplateHaskell):
   extensions
 
-parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (HSE.Module HSE.SrcSpan)
+parse :: Language -> [Extension] -> CpphsOptions -> FilePath -> IO (Module SrcSpan)
 parse language extensions cppoptions filename = do
     parseresult <- parseFileWithCommentsAndCPP cppoptions mode filename
     case parseresult of
-        UnAnn.ParseOk (ast,_) -> return (fmap srcInfoSpan ast)
-        UnAnn.ParseFailed loc msg -> error ("PARSE FAILED: " ++ show loc ++ " " ++ show msg)
+        ParseOk (ast,_) -> return (fmap srcInfoSpan ast)
+        ParseFailed loc msg -> error ("PARSE FAILED: " ++ show loc ++ " " ++ show msg)
   where
     mode = defaultParseMode
-             { UnAnn.parseFilename   = filename
+             { parseFilename   = filename
              , baseLanguage          = language
              , extensions            = fixExtensions extensions
              , ignoreLanguagePragmas = False
@@ -163,8 +143,8 @@ compile builddirectory maybelanguage extensions cppoptions packagename packagedb
 
         annotatedmoduleast <- evalNamesModuleT (annotateModule language extensions moduleast) packages
 
-        let declarations = extractDeclarations (getModuleName annotatedmoduleast) annotatedmoduleast
-            HSE.ModuleName _ modulename = getModuleName moduleast
+        let declarations = extractDeclarations annotatedmoduleast
+            ModuleName _ modulename = getModuleName moduleast
             interfacefilename = builddirectory </> toFilePath (fromString modulename) <.> "names"
             declarationsfilename = builddirectory </> toFilePath (fromString modulename) <.> "declarations"
 
@@ -174,17 +154,23 @@ compile builddirectory maybelanguage extensions cppoptions packagename packagedb
         writeInterface interfacefilename $ qualifySymbols packagename symbols
         ByteString.writeFile declarationsfilename (encode declarations))
 
-extractDeclarations :: HSE.ModuleName (Scoped HSE.SrcSpan) -> HSE.Module (Scoped HSE.SrcSpan) -> [Declaration]
-extractDeclarations modulenameast annotatedmoduleast = map (declToDeclaration modulenameast) (getModuleDecls annotatedmoduleast)
+extractDeclarations :: Module (Scoped SrcSpan) -> [Declaration]
+extractDeclarations annotatedast =
+    mapMaybe (declToDeclaration modulnameast) (getModuleDecls annotatedast) where
+        modulnameast = getModuleName annotatedast
 
-declToDeclaration :: HSE.ModuleName (Scoped HSE.SrcSpan) -> HSE.Decl (Scoped HSE.SrcSpan) -> Declaration
-declToDeclaration modulenameast annotatedmoduleast = Declaration
-    (declGenre annotatedmoduleast)
-    (prettyPrint annotatedmoduleast)
-    (declaredSymbols modulenameast annotatedmoduleast)
-    (usedSymbols annotatedmoduleast)
+declToDeclaration :: ModuleName (Scoped SrcSpan) -> Decl (Scoped SrcSpan) -> Maybe Declaration
+declToDeclaration modulnameast annotatedast = do
+    let genre = declGenre annotatedast
+    case genre of
+        Other -> Nothing
+        _ -> return (Declaration
+            genre
+            (prettyPrint annotatedast)
+            (declaredSymbols modulnameast annotatedast)
+            (usedSymbols annotatedast))
 
-declGenre :: HSE.Decl (Scoped HSE.SrcSpan) -> Genre
+declGenre :: Decl (Scoped SrcSpan) -> Genre
 declGenre (TypeDecl _ _ _) = Type
 declGenre (TypeFamDecl _ _ _) = Type
 declGenre (DataDecl _ _ _ _ _ _) = Type
@@ -200,23 +186,28 @@ declGenre (TypeSig _ _ _) = TypeSignature
 declGenre (FunBind _ _) = Value
 declGenre (PatBind _ _ _ _) = Value
 declGenre (ForImp _ _ _ _ _ _) = Value
+declGenre (InfixDecl _ _ _ _) = InfixFixity
 declGenre _ = Other
 
-declaredSymbols :: HSE.ModuleName (Scoped HSE.SrcSpan) -> HSE.Decl (Scoped HSE.SrcSpan) -> Symbols
+declaredSymbols :: ModuleName (Scoped SrcSpan) -> Decl (Scoped SrcSpan) -> Symbols
 declaredSymbols modulenameast annotatedmoduleast = Symbols (Set.fromList valuesymbols) (Set.fromList typesymbols) where
     (valuesymbols,typesymbols) = partitionEithers (getTopDeclSymbols GlobalTable.empty modulenameast annotatedmoduleast)
 
-usedSymbols :: HSE.Decl (Scoped HSE.SrcSpan) -> Symbols
+usedSymbols :: Decl (Scoped SrcSpan) -> Symbols
 usedSymbols annotatedmoduleast = Symbols (Set.fromList valuesymbols) (Set.fromList typesymbols) where
     (valuesymbols,typesymbols) = partitionEithers (foldMap externalSymbol annotatedmoduleast)
 
-externalSymbol :: Scoped HSE.SrcSpan -> [Either (SymValueInfo OrigName) (SymTypeInfo OrigName)]
+externalSymbol :: Scoped SrcSpan -> [Either (SymValueInfo OrigName) (SymTypeInfo OrigName)]
 externalSymbol (Scoped (GlobalValue symvalueinfo) _) = [Left symvalueinfo]
 externalSymbol (Scoped (GlobalType symtypeinfo) _) = [Right symtypeinfo]
 externalSymbol _ = []
 
-data Declaration = Declaration Genre DeclarationAST DeclaredSymbols UsedSymbols deriving (Show,Eq)
-data Genre = Value | TypeSignature | Type | TypeClass | ClassInstance | Other deriving (Show,Eq)
+data Declaration = Declaration Genre DeclarationAST DeclaredSymbols UsedSymbols 
+    deriving (Show,Eq)
+
+data Genre = Value | TypeSignature | Type | TypeClass | ClassInstance | InfixFixity | Other
+    deriving (Show,Eq,Read)
+
 type DeclarationAST = String
 type DeclaredSymbols = Symbols
 type UsedSymbols = Symbols
