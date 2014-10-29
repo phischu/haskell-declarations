@@ -41,6 +41,8 @@ import Data.Foldable (foldMap)
 import Language.Haskell.Exts.Annotated.CPP
 import Language.Haskell.Names.SyntaxUtils
 
+import Control.Exception (catch,SomeException)
+
 main :: IO ()
 main =
   Compiler.main theTool
@@ -125,7 +127,7 @@ parse language extensions cppoptions filename = do
              }
 
 compile :: Compiler.CompileFn
-compile builddirectory maybelanguage extensions cppoptions packagename packagedbs dependencies files = do
+compile builddirectory maybelanguage extensions cppoptions packagename packagedbs dependencies files = (do
     let language = fromMaybe Haskell98 maybelanguage
 
     let isParsec = pkgName packagename == PackageName "parsec"
@@ -152,7 +154,9 @@ compile builddirectory maybelanguage extensions cppoptions packagename packagedb
         createDirectoryIfMissingVerbose silent True (dropFileName declarationsfilename)
 
         writeInterface interfacefilename $ qualifySymbols packagename symbols
-        ByteString.writeFile declarationsfilename (encode declarations))
+        ByteString.writeFile declarationsfilename (encode declarations)))
+            `catch`
+    (print :: SomeException -> IO ())
 
 extractDeclarations :: Module (Scoped SrcSpan) -> [Declaration]
 extractDeclarations annotatedast =
