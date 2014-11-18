@@ -4,8 +4,8 @@ module Main where
 import Language.Haskell.Exts.Annotated (Module,Decl(..),ModuleName(ModuleName))
 import Language.Haskell.Exts (defaultParseMode,ParseMode(..),ParseResult(ParseOk,ParseFailed))
 import Language.Haskell.Names (
-    Symbols(Symbols),annotateModule,Scoped(Scoped),SymValueInfo,SymTypeInfo,OrigName,
-    NameInfo(GlobalValue,GlobalType),getInterfaces,ppError,qualifySymbols)
+    Symbol,annotateModule,Scoped(Scoped),
+    NameInfo(GlobalSymbol),getInterfaces,ppError)
 import Language.Haskell.Names.Interfaces
 import Language.Haskell.Exts.Extension
 import Language.Haskell.Exts.SrcLoc
@@ -21,8 +21,6 @@ import qualified Data.ByteString.Lazy as ByteString (writeFile)
 
 import Language.Haskell.Exts.Pretty (prettyPrint)
 
-import qualified Data.Set as Set (fromList)
-
 import Distribution.HaskellSuite
 import qualified Distribution.HaskellSuite.Compiler as Compiler
 
@@ -35,7 +33,6 @@ import Language.Haskell.Names.ModuleSymbols (getTopDeclSymbols)
 import qualified Language.Haskell.Names.GlobalSymbolTable as GlobalTable (empty)
 
 import Control.Monad (forM_)
-import Data.Either (partitionEithers)
 import Data.Foldable (foldMap)
 
 import Language.Haskell.Exts.Annotated.CPP
@@ -153,7 +150,7 @@ compile builddirectory maybelanguage extensions cppoptions packagename packagedb
         createDirectoryIfMissingVerbose silent True (dropFileName interfacefilename)
         createDirectoryIfMissingVerbose silent True (dropFileName declarationsfilename)
 
-        writeInterface interfacefilename $ qualifySymbols packagename symbols
+        writeInterface interfacefilename symbols
         ByteString.writeFile declarationsfilename (encode declarations)))
             `catch`
     (print :: SomeException -> IO ())
@@ -193,17 +190,14 @@ declGenre (ForImp _ _ _ _ _ _) = Value
 declGenre (InfixDecl _ _ _ _) = InfixFixity
 declGenre _ = Other
 
-declaredSymbols :: ModuleName (Scoped SrcSpan) -> Decl (Scoped SrcSpan) -> Symbols
-declaredSymbols modulenameast annotatedmoduleast = Symbols (Set.fromList valuesymbols) (Set.fromList typesymbols) where
-    (valuesymbols,typesymbols) = partitionEithers (getTopDeclSymbols GlobalTable.empty modulenameast annotatedmoduleast)
+declaredSymbols :: ModuleName (Scoped SrcSpan) -> Decl (Scoped SrcSpan) -> [Symbol]
+declaredSymbols modulenameast annotateddeclast = getTopDeclSymbols GlobalTable.empty modulenameast annotateddeclast
 
-usedSymbols :: Decl (Scoped SrcSpan) -> Symbols
-usedSymbols annotatedmoduleast = Symbols (Set.fromList valuesymbols) (Set.fromList typesymbols) where
-    (valuesymbols,typesymbols) = partitionEithers (foldMap externalSymbol annotatedmoduleast)
+usedSymbols :: Decl (Scoped SrcSpan) -> [Symbol]
+usedSymbols annotatedmoduleast = foldMap externalSymbol annotatedmoduleast
 
-externalSymbol :: Scoped SrcSpan -> [Either (SymValueInfo OrigName) (SymTypeInfo OrigName)]
-externalSymbol (Scoped (GlobalValue symvalueinfo) _) = [Left symvalueinfo]
-externalSymbol (Scoped (GlobalType symtypeinfo) _) = [Right symtypeinfo]
+externalSymbol :: Scoped SrcSpan -> [Symbol]
+externalSymbol (Scoped (GlobalSymbol symbol _) _) = [symbol]
 externalSymbol _ = []
 
 data Declaration = Declaration Genre DeclarationAST DeclaredSymbols UsedSymbols 
@@ -213,8 +207,8 @@ data Genre = Value | TypeSignature | Type | TypeClass | ClassInstance | InfixFix
     deriving (Show,Eq,Read)
 
 type DeclarationAST = String
-type DeclaredSymbols = Symbols
-type UsedSymbols = Symbols
+type DeclaredSymbols = [Symbol]
+type UsedSymbols = [Symbol]
 
 instance ToJSON Declaration where
   toJSON (Declaration genre declarationast declaredsymbols usedsymbols) = object [
