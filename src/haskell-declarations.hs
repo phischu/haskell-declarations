@@ -16,6 +16,7 @@ import Data.Maybe
 import qualified Data.Foldable as F
 import System.FilePath
 import Text.Printf
+import Data.List.Split (splitOn)
 import Data.Aeson (encode,ToJSON(toJSON),object,(.=))
 import qualified Data.ByteString.Lazy as ByteString (writeFile)
 
@@ -28,6 +29,7 @@ import Distribution.Package (PackageIdentifier(pkgName),PackageName(PackageName)
 import Distribution.ModuleName (toFilePath,fromString)
 import Distribution.Simple.Utils
 import Distribution.Verbosity
+import Distribution.Text (display)
 
 import Language.Haskell.Names.ModuleSymbols (getTopDeclSymbols)
 import qualified Language.Haskell.Names.GlobalSymbolTable as GlobalTable (empty)
@@ -60,7 +62,7 @@ theTool =
     knownLanguages
     knownExtensions
     compile
-    ["names","declarations"]
+    ["names","declarations","installation"]
 
 fixCppOpts :: CpphsOptions -> CpphsOptions
 fixCppOpts opts =
@@ -143,15 +145,24 @@ compile builddirectory maybelanguage extensions cppoptions packagename packagedb
         annotatedmoduleast <- evalNamesModuleT (annotateModule language extensions moduleast) packages
 
         let declarations = extractDeclarations annotatedmoduleast
+            installation = do
+                installedpackageid <- dependencies
+                let installedpackageidparts = splitOn "-" (display installedpackageid)
+                    dependencyname = intercalate "-" (reverse (drop 2 (reverse installedpackageidparts)))
+                    dependencyversion = installedpackageidparts !! 1
+                return (Dependency dependencyname dependencyversion)
             ModuleName _ modulename = getModuleName moduleast
             interfacefilename = builddirectory </> toFilePath (fromString modulename) <.> "names"
             declarationsfilename = builddirectory </> toFilePath (fromString modulename) <.> "declarations"
+            installationfilename = builddirectory </> display packagename <.> "installation"
 
         createDirectoryIfMissingVerbose silent True (dropFileName interfacefilename)
         createDirectoryIfMissingVerbose silent True (dropFileName declarationsfilename)
+        createDirectoryIfMissingVerbose silent True (dropFileName installationfilename)
 
         writeInterface interfacefilename symbols
-        ByteString.writeFile declarationsfilename (encode declarations)))
+        ByteString.writeFile declarationsfilename (encode declarations)
+        ByteString.writeFile installationfilename (encode installation)))
             `catch`
     (print :: SomeException -> IO ())
 
@@ -216,3 +227,11 @@ instance ToJSON Declaration where
         "declarationast" .= declarationast,
         "declaredsymbols" .= declaredsymbols,
         "mentionedsymbols" .= usedsymbols]
+
+data Dependency = Dependency String String
+    deriving (Show,Eq,Ord)
+
+instance ToJSON Dependency where
+    toJSON (Dependency dependencyname dependencyversion) = object [
+        "dependencyname" .= dependencyname,
+        "dependencyversion" .= dependencyversion]
