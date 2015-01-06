@@ -62,7 +62,7 @@ theTool =
     knownLanguages
     knownExtensions
     compile
-    ["names","declarations","installation"]
+    ["names","declarations"]
 
 fixCppOpts :: CpphsOptions -> CpphsOptions
 fixCppOpts opts =
@@ -140,29 +140,31 @@ compile builddirectory maybelanguage extensions cppoptions packagename packagedb
 
     F.for_ errors $ \e -> printf "Warning: %s" (ppError e)
 
+    let installation = do
+            installedpackageid <- dependencies
+            let installedpackageidparts = splitOn "-" (display installedpackageid)
+                dependencyname = intercalate "-" (reverse (drop 1 (reverse installedpackageidparts)))
+                dependencyversion = head (reverse installedpackageidparts)
+            return (Dependency dependencyname dependencyversion)
+        installationfilename = "/home/pschuster/Projects/symbols/installations" </> display packagename
+    createDirectoryIfMissingVerbose silent True (dropFileName installationfilename)
+    ByteString.writeFile installationfilename (encode installation)
+
     forM_ (zip moduleasts interfaces) (\(moduleast, symbols) -> do
 
         annotatedmoduleast <- evalNamesModuleT (annotateModule language extensions moduleast) packages
 
         let declarations = extractDeclarations annotatedmoduleast
-            installation = do
-                installedpackageid <- dependencies
-                let installedpackageidparts = splitOn "-" (display installedpackageid)
-                    dependencyname = intercalate "-" (reverse (drop 2 (reverse installedpackageidparts)))
-                    dependencyversion = installedpackageidparts !! 1
-                return (Dependency dependencyname dependencyversion)
+            
             ModuleName _ modulename = getModuleName moduleast
             interfacefilename = builddirectory </> toFilePath (fromString modulename) <.> "names"
             declarationsfilename = builddirectory </> toFilePath (fromString modulename) <.> "declarations"
-            installationfilename = builddirectory </> display packagename <.> "installation"
 
         createDirectoryIfMissingVerbose silent True (dropFileName interfacefilename)
         createDirectoryIfMissingVerbose silent True (dropFileName declarationsfilename)
-        createDirectoryIfMissingVerbose silent True (dropFileName installationfilename)
 
         writeInterface interfacefilename symbols
-        ByteString.writeFile declarationsfilename (encode declarations)
-        ByteString.writeFile installationfilename (encode installation)))
+        ByteString.writeFile declarationsfilename (encode declarations)))
             `catch`
     (print :: SomeException -> IO ())
 
